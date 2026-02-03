@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trends - Conversation Insights</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 2rem; background: #0f1419; color: #e7e9ea; min-height: 100vh; }
+    a { color: #1d9bf0; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    .nav { margin-bottom: 1.5rem; }
+    .meta { color: #71767b; margin-bottom: 1.5rem; }
+    .filters { margin-bottom: 1.5rem; }
+    .filters select { padding: 0.5rem; border-radius: 6px; border: 1px solid #38444d; background: #16181c; color: #e7e9ea; }
+    .filters button { padding: 0.5rem 1rem; background: #1d9bf0; color: #fff; border: none; border-radius: 6px; cursor: pointer; margin-left: 0.5rem; }
+    section { background: #16181c; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+    section h2 { font-size: 1rem; margin: 0 0 0.75rem; color: #e7e9ea; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid #38444d; font-size: 0.9rem; }
+    th { color: #71767b; font-weight: 600; }
+    .loading { padding: 2rem; text-align: center; color: #71767b; }
+    .error { color: #f4212e; padding: 1rem; }
+    .bar { background: #38444d; border-radius: 4px; height: 1.25rem; overflow: hidden; }
+    .bar span { display: block; height: 100%; background: #1d9bf0; }
+  </style>
+</head>
+<body>
+  <div class="nav"><a href="/app">Back to Dashboard</a></div>
+  <h1>Trends</h1>
+  <p class="meta">Time-windowed aggregates: volume, sentiment drift, top gaps and topics.</p>
+  <div class="filters">
+    <select id="window">
+      <option value="1d">Last 1 day</option>
+      <option value="7d" selected>Last 7 days</option>
+      <option value="30d">Last 30 days</option>
+    </select>
+    <button type="button" id="fetchBtn">Load</button>
+  </div>
+  <div id="out">
+    <div class="loading">Loading...</div>
+  </div>
+  <script>
+    async function fetchTrends() {
+      const window = document.getElementById('window').value;
+      document.getElementById('out').innerHTML = '<div class="loading">Loading...</div>';
+      try {
+        const r = await fetch('/api/v1/trends?window=' + encodeURIComponent(window));
+        if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+        const data = await r.json();
+        render(data);
+      } catch (e) {
+        document.getElementById('out').innerHTML = '<div class="error">' + e.message + '</div>';
+      }
+    }
+    function render(data) {
+      const vol = data.volume || [];
+      const sent = data.sentiment_drift || [];
+      const gaps = data.top_gaps || [];
+      const topics = data.top_topics || [];
+      const maxVol = Math.max(...vol.map(v => v.count), 1);
+      let html = '<section><h2>Volume by day</h2>';
+      if (vol.length === 0) html += '<p class="meta">No data in this window.</p>';
+      else html += '<table><thead><tr><th>Day</th><th>Count</th></tr></thead><tbody>' +
+        vol.map(v => '<tr><td>' + v.bucket + '</td><td><div class="bar" style="width:8rem"><span style="width:' + (100 * v.count / maxVol) + '%"></span></div> ' + v.count + '</td></tr>').join('') + '</tbody></table>';
+      html += '</section>';
+      html += '<section><h2>Sentiment by day</h2>';
+      if (sent.length === 0) html += '<p class="meta">No data.</p>';
+      else html += '<table><thead><tr><th>Day</th><th>Positive</th><th>Negative</th><th>Neutral</th><th>Other</th></tr></thead><tbody>' +
+        sent.map(s => '<tr><td>' + s.bucket + '</td><td>' + s.positive + '</td><td>' + s.negative + '</td><td>' + s.neutral + '</td><td>' + s.other + '</td></tr>').join('') + '</tbody></table>';
+      html += '</section>';
+      html += '<section><h2>Top gaps</h2>';
+      if (gaps.length === 0) html += '<p class="meta">No gaps in this window.</p>';
+      else html += '<table><thead><tr><th>Gap</th><th>Count</th></tr></thead><tbody>' + gaps.map(g => '<tr><td>' + (g.gap || g) + '</td><td>' + (g.count ?? '') + '</td></tr>').join('') + '</tbody></table>';
+      html += '</section>';
+      html += '<section><h2>Top topics</h2>';
+      if (topics.length === 0) html += '<p class="meta">No topics in this window.</p>';
+      else html += '<table><thead><tr><th>Topic</th><th>Count</th></tr></thead><tbody>' + topics.map(t => '<tr><td>' + (t.topic || t) + '</td><td>' + (t.count ?? '') + '</td></tr>').join('') + '</tbody></table>';
+      html += '</section>';
+      document.getElementById('out').innerHTML = html;
+    }
+    document.getElementById('fetchBtn').onclick = fetchTrends;
+    fetchTrends();
+  </script>
+</body>
+</html>

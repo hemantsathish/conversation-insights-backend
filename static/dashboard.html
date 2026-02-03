@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Conversation Insights - Dashboard</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 2rem; background: #0f1419; color: #e7e9ea; min-height: 100vh; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    .sub { color: #71767b; margin-bottom: 2rem; }
+    nav { display: flex; flex-wrap: wrap; gap: 1rem; }
+    a { display: inline-block; padding: 0.75rem 1.25rem; background: #1d9bf0; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 500; }
+    a:hover { background: #1a8cd8; }
+    .card { background: #16181c; border-radius: 12px; padding: 1.5rem; margin-top: 1.5rem; max-width: 24rem; }
+    .card h2 { font-size: 1rem; margin: 0 0 0.5rem; color: #e7e9ea; }
+    .card p { margin: 0; color: #71767b; font-size: 0.9rem; }
+    .api { margin-top: 2rem; font-size: 0.85rem; color: #71767b; }
+    .api a { background: transparent; color: #1d9bf0; padding: 0; }
+  </style>
+</head>
+<body>
+  <h1>Conversation Insights</h1>
+  <p class="sub">Ingest X/Twitter conversations, analyze via Grok, view insights and trends.</p>
+  <nav>
+    <a href="/app/insights">Insights</a>
+    <a href="/app/trends">Trends</a>
+    <a href="/app/ingest">Ingest</a>
+    <a href="/app/health">Health</a>
+    <a href="/docs" target="_blank">API (Swagger)</a>
+  </nav>
+  <div class="card">
+    <h2>Quick links</h2>
+    <p>Use <strong>Insights</strong> to browse analyzed conversations (sentiment, topics, gaps). Use <strong>Trends</strong> for time-windowed aggregates. Use <strong>Ingest</strong> to submit single or bulk conversations.</p>
+  </div>
+  <p class="api"><a href="/docs">OpenAPI docs</a> · <a href="/metrics" target="_blank">Prometheus /metrics</a></p>
+</body>
+</html>

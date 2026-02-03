@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Insights - Conversation Insights</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 2rem; background: #0f1419; color: #e7e9ea; min-height: 100vh; }
+    a { color: #1d9bf0; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    .nav { margin-bottom: 1.5rem; }
+    .filters { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-bottom: 1.5rem; }
+    .filters input, .filters select { padding: 0.5rem; border-radius: 6px; border: 1px solid #38444d; background: #16181c; color: #e7e9ea; }
+    .filters button { padding: 0.5rem 1rem; background: #1d9bf0; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+    .filters button:hover { background: #1a8cd8; }
+    table { width: 100%; border-collapse: collapse; background: #16181c; border-radius: 12px; overflow: hidden; }
+    th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid #38444d; }
+    th { background: #1e2126; color: #71767b; font-weight: 600; font-size: 0.85rem; }
+    tr:hover { background: #1c1f23; }
+    .badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; }
+    .positive { background: #0e7c42; color: #fff; }
+    .negative { background: #b33a3a; color: #fff; }
+    .neutral { background: #71767b; color: #fff; }
+    .skipped { color: #71767b; font-size: 0.85rem; }
+    .meta { font-size: 0.85rem; color: #71767b; }
+    .loading { padding: 2rem; text-align: center; color: #71767b; }
+    .error { color: #f4212e; padding: 1rem; }
+    .pagination { margin-top: 1rem; display: flex; gap: 0.5rem; align-items: center; }
+    .pagination button { padding: 0.4rem 0.8rem; background: #38444d; color: #e7e9ea; border: none; border-radius: 6px; cursor: pointer; }
+    .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="nav"><a href="/app">Back to Dashboard</a></div>
+  <h1>Insights</h1>
+  <p class="meta">Analyzed conversations (sentiment, topics, gaps from Grok).</p>
+  <div class="filters">
+    <input type="text" id="sentiment" placeholder="Sentiment (e.g. positive)" />
+    <input type="text" id="topic" placeholder="Topic filter" />
+    <input type="number" id="limit" value="50" min="1" max="500" style="width:5rem" />
+    <button type="button" id="fetchBtn">Load</button>
+  </div>
+  <div id="out">
+    <div class="loading">Loading...</div>
+  </div>
+  <div class="pagination" id="pag" style="display:none">
+    <button type="button" id="prev">Previous</button>
+    <span id="range"></span>
+    <button type="button" id="next">Next</button>
+  </div>
+  <script>
+    let offset = 0;
+    const limit = () => parseInt(document.getElementById('limit').value, 10) || 50;
+    async function fetchInsights() {
+      const sentiment = document.getElementById('sentiment').value.trim() || undefined;
+      const topic = document.getElementById('topic').value.trim() || undefined;
+      const params = new URLSearchParams({ limit: limit(), offset });
+      if (sentiment) params.set('sentiment', sentiment);
+      if (topic) params.set('topic', topic);
+      document.getElementById('out').innerHTML = '<div class="loading">Loading...</div>';
+      try {
+        const r = await fetch('/api/v1/insights?' + params);
+        if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+        const data = await r.json();
+        render(data);
+      } catch (e) {
+        document.getElementById('out').innerHTML = '<div class="error">' + e.message + '</div>';
+      }
+    }
+    function render(data) {
+      const { items, total } = data;
+      if (!items || items.length === 0) {
+        document.getElementById('out').innerHTML = '<p class="meta">No insights yet. Ingest conversations and wait for the worker to process them.</p>';
+        document.getElementById('pag').style.display = 'none';
+        return;
+      }
+      const html = '<table><thead><tr><th>Conversation</th><th>Sentiment</th><th>Topics</th><th>Gaps</th><th>Tokens / Cost</th><th>Created</th></tr></thead><tbody>' +
+        items.map(i => {
+          const sentClass = (i.sentiment || '').toLowerCase();
+          const sentBadge = i.skipped_reason ? '<span class="skipped">' + i.skipped_reason + '</span>' : '<span class="badge ' + sentClass + '">' + (i.sentiment || '-') + '</span>';
+          const topics = (i.topics || []).join(', ') || '-';
+          const gaps = (i.gaps || []).join(', ') || '-';
+          const meta = [i.prompt_tokens, i.completion_tokens].filter(Boolean).join(' / ') || '-';
+          const cost = i.cost_estimate != null ? '$' + Number(i.cost_estimate).toFixed(4) : '-';
+          const created = i.created_at ? new Date(i.created_at).toLocaleString() : '-';
+          return '<tr><td>' + i.conversation_id.slice(0,8) + '...</td><td>' + sentBadge + '</td><td>' + topics + '</td><td>' + gaps + '</td><td>' + meta + ' ' + cost + '</td><td>' + created + '</td></tr>';
+        }).join('') + '</tbody></table>';
+      document.getElementById('out').innerHTML = html;
+      document.getElementById('pag').style.display = 'flex';
+      document.getElementById('range').textContent = (offset + 1) + '-' + Math.min(offset + items.length, total) + ' of ' + total;
+      document.getElementById('prev').disabled = offset === 0;
+      document.getElementById('next').disabled = offset + items.length >= total;
+    }
+    document.getElementById('fetchBtn').onclick = () => { offset = 0; fetchInsights(); };
+    document.getElementById('prev').onclick = () => { offset = Math.max(0, offset - limit()); fetchInsights(); };
+    document.getElementById('next').onclick = () => { offset += limit(); fetchInsights(); };
+    fetchInsights();
+  </script>
+</body>
+</html>

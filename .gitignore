@@ -1,0 +1,29 @@
+# Environment and secrets
+.env
+.env.local
+*.pem
+
+# Kaggle data (large CSVs)
+data/*.csv
+data/*.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.eggs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test and build
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ingest - Conversation Insights</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 2rem; background: #0f1419; color: #e7e9ea; min-height: 100vh; }
+    a { color: #1d9bf0; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    .nav { margin-bottom: 1.5rem; }
+    .meta { color: #71767b; margin-bottom: 1.5rem; }
+    section { background: #16181c; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; max-width: 32rem; }
+    section h2 { font-size: 1rem; margin: 0 0 0.75rem; }
+    label { display: block; margin-bottom: 0.25rem; font-size: 0.9rem; color: #71767b; }
+    input, textarea { width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid #38444d; background: #0f1419; color: #e7e9ea; margin-bottom: 0.75rem; font-family: inherit; }
+    textarea { min-height: 8rem; font-size: 0.85rem; }
+    button { padding: 0.5rem 1rem; background: #1d9bf0; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; }
+    button:hover { background: #1a8cd8; }
+    .result { margin-top: 1rem; padding: 0.75rem; border-radius: 8px; font-size: 0.9rem; white-space: pre-wrap; }
+    .result.ok { background: #0e7c42; color: #fff; }
+    .result.err { background: #b33a3a; color: #fff; }
+  </style>
+</head>
+<body>
+  <div class="nav"><a href="/app">Back to Dashboard</a></div>
+  <h1>Ingest</h1>
+  <p class="meta">Submit a single conversation (JSON) or use bulk from script / API.</p>
+  <section>
+    <h2>Single conversation</h2>
+    <p class="meta" style="margin-bottom:0.75rem">Paste JSON with <code>messages</code>: array of objects with <code>tweet_id</code>, <code>author_id</code>, <code>text</code>, optional <code>in_reply_to_id</code>, <code>inbound</code>.</p>
+    <textarea id="singleJson" placeholder='{"messages":[{"tweet_id":"1","author_id":"u1","text":"Hello"},{"tweet_id":"2","author_id":"u2","text":"Hi","in_reply_to_id":"1","inbound":false}]}'></textarea>
+    <button type="button" id="singleBtn">Submit single</button>
+    <div id="singleResult"></div>
+  </section>
+  <section>
+    <h2>Bulk (up to 500)</h2>
+    <p class="meta" style="margin-bottom:0.75rem">Paste JSON with <code>conversations</code>: array of objects each with <code>messages</code> array. Or run <code>python scripts/load_kaggle_subset.py --csv data/twcs.csv --limit 5000</code>.</p>
+    <textarea id="bulkJson" placeholder='{"conversations":[{"messages":[{"tweet_id":"1","author_id":"u1","text":"Hi"},{"tweet_id":"2","author_id":"u2","text":"Hello","in_reply_to_id":"1"}]}]}'></textarea>
+    <button type="button" id="bulkBtn">Submit bulk</button>
+    <div id="bulkResult"></div>
+  </section>
+  <script>
+    function show(el, text, ok) {
+      el.innerHTML = '<div class="result ' + (ok ? 'ok' : 'err') + '">' + text + '</div>';
+    }
+    document.getElementById('singleBtn').onclick = async () => {
+      const el = document.getElementById('singleResult');
+      try {
+        const body = JSON.parse(document.getElementById('singleJson').value);
+        const r = await fetch('/api/v1/conversations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) show(el, (data.detail || r.statusText) + (Array.isArray(data.detail) ? '\n' + JSON.stringify(data.detail) : ''), false);
+        else show(el, 'Created: conversation_id=' + data.conversation_id + ', enqueued=' + data.enqueued, true);
+      } catch (e) { show(el, e.message, false); }
+    };
+    document.getElementById('bulkBtn').onclick = async () => {
+      const el = document.getElementById('bulkResult');
+      try {
+        const body = JSON.parse(document.getElementById('bulkJson').value);
+        const r = await fetch('/api/v1/conversations/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) show(el, (data.detail || r.statusText) + (Array.isArray(data.detail) ? '\n' + JSON.stringify(data.detail) : ''), false);
+        else show(el, 'Accepted: ' + data.accepted + ', Rejected: ' + data.rejected + (data.backpressure ? ', Backpressure' : ''), true);
+      } catch (e) { show(el, e.message, false); }
+    };
+  </script>
+</body>
+</html>
